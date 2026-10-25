@@ -12,7 +12,7 @@ class USBConnection:
         self,
         port: str,
         baudrate: int,
-        destination_file: str,
+        destination_file: str ="frame_output.jpg",
         payload: bytearray = bytearray(),
     ):
         self.payload = payload
