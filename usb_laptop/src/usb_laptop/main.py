@@ -3,7 +3,7 @@ main.py
 """
 
 from serial import Serial
-
+from time import sleep
 END_OF_FILE_MARKER = b"\n__IMAGE_EOF__\n"
 
 
@@ -27,13 +27,21 @@ class USBConnection:
         self.chunk_data = None
         self.frame_data = None
 
-    def open_connection(self):
+    def open_connection(self): # -> throws AssertionError, and TimeoutError if it can't connect
         # only open a connection if there does not currently exist one.
-        assert not self.serial_connection
-
+        assert self.serial_connection is None, "Only open a connection if there doesn't exist one"
+        connection_tries = 0
         # Create Serial Connection
-        self.serial_connection = Serial(port=self.port, baudrate=self.baudrate)
-
+        while connection_tries <= 5:
+            try:
+                self.serial_connection = Serial(port=self.port, baudrate=self.baudrate)
+            except Exception as err:
+                connection_tries+=1 
+                sleep(2)
+                continue
+        
+        if not self.serial_connection:
+            raise TimeoutError("Could not open a serial connection after 5 tries")
         # the first line is the header of the file set by the PICO
         header_line = (
             self.serial_connection
@@ -45,7 +53,7 @@ class USBConnection:
         
         
 
-    def read_frame_data(self, byte_size:int = 1_000_000):
+    def read_frame_data(self, byte_size:int = 1_000_000): # -> throws an AssertionError
         """
         Function: read_frame_data
         This function handles the connection/read loop.
@@ -57,9 +65,14 @@ class USBConnection:
             fetch data provided by the PICO
         RETURN: Nothing
         """
+        assert self.serial_connection is not None, "No Connection to read frame data from"
         
         while True:
+          
             self.chunk_data = self.serial_connection.read(byte_size)
+           
+                
+            
             if not self.chunk_data:
                 continue
             if self.chunk_data == b"EOF":
@@ -76,18 +89,18 @@ class USBConnection:
         write_frame_data recieves the completed payload bytearray and sets `self.frame_data`
         and attempts to write the completed frame data to the temporary destination file 
         """
-        
-        self.file = open(self.destination_file_name, "wb")
-        self.frame_data = self.payload[: -len(END_OF_FILE_MARKER)]
-
-
-        soi_index = self.frame_data.find(b"\xff\xd8")
-        if soi_index != -1:
-            self.frame_data = self.frame_data[soi_index:]
-        else:
-            print("Warning: JPEG SOI marker (FF D8) not found! File may be invalid.")
-        
         try:
+            self.file = open(self.destination_file_name, "wb")
+            self.frame_data = self.payload[: -len(END_OF_FILE_MARKER)]
+
+
+            soi_index = self.frame_data.find(b"\xff\xd8")
+            if soi_index != -1:
+                self.frame_data = self.frame_data[soi_index:]
+            else:
+                print("Warning: JPEG SOI marker (FF D8) not found! File may be invalid.")
+            
+        
             self.file.write(self.frame_data)
         except Exception as err:
             print(err)
@@ -104,9 +117,7 @@ class USBConnection:
         self.payload.clear()
 
 
-
-
-if __name__ == "__main__":
+def main():
     # This is hardcoded and changes by Machine 
     # I recommend using Linux when developing in this Repo as the file system is easier to use 
     # CHANGE THIS TO MATCH THE PORT ON THE OUTPUT LAPTOP (CHECK README.md)
@@ -114,14 +125,13 @@ if __name__ == "__main__":
     
     payload = bytearray()
     
-    # COULD BE MODIYFIED TO INCREASE TRANSFER SPEED
+    # COULD BE MODIFIED TO INCREASE TRANSFER SPEED
     baudrate = 115200
-    
     
     usbcon: USBConnection = USBConnection(port=port, baudrate=baudrate, payload=payload)
     
     # Open Connection
-    usbcon.open_connection()
+    usbcon.open_connection() 
     
     # Read from USB
     usbcon.read_frame_data()
@@ -131,3 +141,7 @@ if __name__ == "__main__":
     
     # Clean Up environment
     usbcon.clean_up()
+
+
+if __name__ == "__main__":
+    main()
