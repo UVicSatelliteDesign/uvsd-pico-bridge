@@ -11,5 +11,6 @@ wheels/
 
 
 *.jpg
+!spi_connection/sample_frame.jpg
 
 photo.h
