@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdint.h>
-#define SPI_PORT spi1
+#define SPI_PORT spi0 // GPIO16-19 are SPI0 pins (RX/CSn/SCK/TX)
 #define MISO 16
 #define CS 17
 #define CLOCK_LINE 18
